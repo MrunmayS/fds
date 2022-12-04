@@ -6,6 +6,8 @@ from libpgm.discretebayesiannetwork import DiscreteBayesianNetwork
 from libpgm.pgmlearner import PGMLearner
 from libpgm.tablecpdfactorization import TableCPDFactorization
 
+
+# Extracting the edges from data
 def create_nodes_from_header(filename):
     csv_file = open(filename, 'r')
     reader = csv.reader(csv_file)
@@ -16,6 +18,8 @@ def create_nodes_from_header(filename):
     csv_file.close()
     return x
 
+
+# Creating observations from data
 def create_observations_from_csv(filename, fieldnames):
     observations = []
     csv_file = open(filename)
@@ -28,6 +32,8 @@ def create_observations_from_csv(filename, fieldnames):
         observations.append(observation)
     return observations
 
+
+# Making a tree from the nodes
 def create_graph_skeleton(nodes, edges):
     graphSkeleton = GraphSkeleton()
     graphSkeleton.V = nodes
@@ -35,6 +41,7 @@ def create_graph_skeleton(nodes, edges):
     graphSkeleton.toporder()
     return graphSkeleton
 
+# Creating a Bayesian Network
 def pristine_bn(V, E, Vdata):
     fresh_bn = DiscreteBayesianNetwork()
     fresh_bn.V = list(V)
@@ -42,10 +49,13 @@ def pristine_bn(V, E, Vdata):
     fresh_bn.Vdata = Vdata.copy()
     return fresh_bn
 
+# Find the cheapest edge that connects a node in the tree to a node not in the tree.
 def pristine_fn(V, E, Vdata):
     pristine = pristine_bn(V, E, Vdata)
     return TableCPDFactorization(pristine)
 
+
+# Calculate the edge information between two nodes.
 def manual_mutual_information(node_a, node_b, observations, Vdata):
     node_a_values = Vdata[node_a]['vals']
     node_b_values = Vdata[node_b]['vals']
@@ -74,6 +84,8 @@ def manual_mutual_information(node_a, node_b, observations, Vdata):
 
     return running_sum
 
+
+
 def count_matching_observations(match_dict, observations):
     matches = 0
     for o in observations:
@@ -86,6 +98,8 @@ def count_matching_observations(match_dict, observations):
             matches += 1
     return matches
 
+
+# saving the extracted edge information into a dictionary
 def save_mutual_information(nodes, observations, Vdata):
     edges_for_tree = []
     nodes_for_tree = nodes[:]
@@ -107,6 +121,8 @@ def load_mutual_information():
     dump_file = open('mushroom.json', 'r')
     return json.load(dump_file)
 
+
+# Finding directed edges for the tree
 def edges_for_maximum_spanning_tree(nodes, all_edges):
     added_nodes = []
     remaining_nodes = nodes[:]
@@ -139,6 +155,8 @@ def edges_for_maximum_spanning_tree(nodes, all_edges):
 
     return directed_edges
 
+
+
 def cheapest_tree_non_tree_edge(nodes_in_tree, nodes_not_in_tree, available_edges):
     valid_edges = []
     for edge in available_edges:
@@ -155,41 +173,28 @@ def cheapest_tree_non_tree_edge(nodes_in_tree, nodes_not_in_tree, available_edge
 
     return cheapest_edge
 
+
+# Assigning the direction of the edges
 def assign_edge_directions(nodes, edges):
     all_edges = edges[:]
     
     visited_nodes = []
     make_parent = []
-
-    # Select random root node.
+    # Start with a random node.
     root = random.choice(nodes)
     make_parent.append(root)
-
-    # Visit each node.
     while len(make_parent) > 0:
-
-        # Get next node to make a parent.
         visiting = make_parent[0]
-
-        # Remove it from the make_parent list.
         make_parent = make_parent[1:]
-
-        # Add it node to the visited list.
         visited_nodes.append(visiting)
-
-        # Check each edge in all_edges.
         for i in range(len(all_edges)):
-
-            # If current edge terminus is this node and if current edge start is not 
-            # in the visited list, swap start and terminus.
             if all_edges[i][1] == visiting and all_edges[i][0] not in visited_nodes:
                 all_edges[i][0], all_edges[i][1] = all_edges[i][1], all_edges[i][0]
-
-            # If the terminus isn't in the list of visited nodes, add it to the list.
             if all_edges[i][0] == visiting and all_edges[i][1] not in make_parent:
                 make_parent.append(all_edges[i][1])
 
     return all_edges
+
 
 def remove_weights_from_edges(edges):
     removing_weights = edges[:]
@@ -292,16 +297,23 @@ data_file_path = 'mushroom.csv'
 
 # Creating Nodes
 nodes = create_nodes_from_header(data_file_path)
-edges = []
+edges = [] # Starting with 0 edges
 print(nodes)
+
+# Creating observations dictornary from data file
 observations = create_observations_from_csv(data_file_path, nodes)
+
+# Creating graph skeleton with 0 edge information
 graphSkeleton = create_graph_skeleton(nodes, edges)
+
+# Using MLP. we create a bayesian network
 bn = PGMLearner().discrete_mle_estimateparams(graphSkeleton, observations)
 save_mutual_information(nodes[1:], observations, bn.Vdata)
-edges_with_weights = load_mutual_information()
+edges_with_weights = load_mutual_information() # strip unnecessary weights from edges.
 final_edges = edges_for_maximum_spanning_tree(nodes[1:], edges_with_weights)
 edges = remove_weights_from_edges(final_edges)
-for i in range(1, len(nodes)):
-    edges.append([nodes[0], nodes[i]])
-graphSkeleton = create_graph_skeleton(nodes, edges)
-run_cross_validation(10, observations, graphSkeleton)
+for i in range(1, len(nodes)): # adding one more edge
+    edges.append([nodes[0], nodes[i]]) 
+
+graphSkeleton = create_graph_skeleton(nodes, edges) # Creating graph skeleton with edge information
+run_cross_validation(10, observations, graphSkeleton) # Running cross validation
