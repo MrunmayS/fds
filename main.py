@@ -7,10 +7,6 @@ from libpgm.pgmlearner import PGMLearner
 from libpgm.tablecpdfactorization import TableCPDFactorization
 
 def create_nodes_from_header(filename):
-    """
-        Returns a list of node labels for an NBC from the CSV file at *filename*.
-        Assumes that the first row of this file contains unquoted node labels.
-    """
     csv_file = open(filename, 'r')
     reader = csv.reader(csv_file)
     x = next(reader)
@@ -118,7 +114,7 @@ def edges_for_maximum_spanning_tree(nodes, all_edges):
     selected_edges = []
 
     # Select a random starting node.
-    print(remaining_nodes)
+    # print(remaining_nodes)
     start_node = random.choice(remaining_nodes)
     remaining_nodes.remove(start_node)
     added_nodes.append(start_node)
@@ -294,35 +290,18 @@ def run_cross_validation(k, observations, graphSkeleton):
 
 data_file_path = 'mushroom.csv'
 
-# Create nodes from data file.
+# Creating Nodes
 nodes = create_nodes_from_header(data_file_path)
-
-# Start with no edges.
 edges = []
-print(nodes[1:])
-# Parse observations from file.
+print(nodes)
 observations = create_observations_from_csv(data_file_path, nodes)
 graphSkeleton = create_graph_skeleton(nodes, edges)
 bn = PGMLearner().discrete_mle_estimateparams(graphSkeleton, observations)
-
-# Calculate and save mutual information to a file.
 save_mutual_information(nodes[1:], observations, bn.Vdata)
-
-# Load pre-calculated mutual information from file
 edges_with_weights = load_mutual_information()
-
-# Select edges and directions using Chow-Liu algorithm.
 final_edges = edges_for_maximum_spanning_tree(nodes[1:], edges_with_weights)
-
-# Strip unnecessary weights from edges.
 edges = remove_weights_from_edges(final_edges)
-
-# Add edges from class node to all other nodes.
 for i in range(1, len(nodes)):
     edges.append([nodes[0], nodes[i]])
-
-# Create a new GraphSkeleton with our tree-augmented network
 graphSkeleton = create_graph_skeleton(nodes, edges)
-
-# Run 10-fold cross validation.
 run_cross_validation(10, observations, graphSkeleton)
